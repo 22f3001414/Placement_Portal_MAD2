@@ -1,0 +1,44 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Database
+# backend/ppa.db
+# *.db
+# *.sqlite3
+
+# Environment
+.env
+.env.*
+
+# PDF
+*.pdf
+
+# claude
+.claude
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Distribution / build
+dist/
+build/
+*.egg-info/
+
+# Submission artifacts
+*.zip
