@@ -1,13 +1,21 @@
 from flask import Blueprint, jsonify, request
-from extensions import db
+from extensions import db, cache
 from models.models import User, StudentProfile, CompanyProfile, PlacementDrive, Application
 from routes.utils import role_required
 
 admin_bp = Blueprint('admin', __name__)
 
 
+def _clear_admin_cache():
+    cache.delete('admin_dashboard')
+    cache.delete('admin_companies')
+    cache.delete('admin_students')
+    cache.delete('admin_drives')
+
+
 @admin_bp.route('/dashboard', methods=['GET'])
 @role_required('admin')
+@cache.cached(timeout=120, key_prefix='admin_dashboard')
 def dashboard():
     total_students = User.query.filter_by(role='student').count()
     total_companies = CompanyProfile.query.count()
@@ -23,6 +31,7 @@ def dashboard():
 
 @admin_bp.route('/companies', methods=['GET'])
 @role_required('admin')
+@cache.cached(timeout=60, key_prefix=lambda: f'admin_companies_{request.args.get("q","")}')
 def list_companies():
     q = request.args.get('q', '').strip()
     query = db.session.query(CompanyProfile, User).join(User, CompanyProfile.user_id == User.id)
@@ -57,6 +66,8 @@ def approve_company(company_id):
     cp = CompanyProfile.query.get_or_404(company_id)
     cp.approval_status = 'approved'
     db.session.commit()
+    cache.delete_memoized(list_companies)
+    _clear_admin_cache()
     return jsonify({'message': 'Company approved'})
 
 
@@ -66,6 +77,7 @@ def reject_company(company_id):
     cp = CompanyProfile.query.get_or_404(company_id)
     cp.approval_status = 'rejected'
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Company rejected'})
 
 
@@ -76,6 +88,7 @@ def blacklist_company(company_id):
     user = User.query.get_or_404(cp.user_id)
     user.is_blacklisted = True
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Company blacklisted'})
 
 
@@ -86,6 +99,7 @@ def deactivate_company(company_id):
     user = User.query.get_or_404(cp.user_id)
     user.is_active = False
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Company deactivated'})
 
 
@@ -93,6 +107,7 @@ def deactivate_company(company_id):
 
 @admin_bp.route('/students', methods=['GET'])
 @role_required('admin')
+@cache.cached(timeout=60, key_prefix=lambda: f'admin_students_{request.args.get("q","")}')
 def list_students():
     q = request.args.get('q', '').strip()
     query = db.session.query(StudentProfile, User).join(User, StudentProfile.user_id == User.id)
@@ -128,6 +143,7 @@ def blacklist_student(student_id):
     user = User.query.get_or_404(sp.user_id)
     user.is_blacklisted = True
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Student blacklisted'})
 
 
@@ -138,6 +154,7 @@ def deactivate_student(student_id):
     user = User.query.get_or_404(sp.user_id)
     user.is_active = False
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Student deactivated'})
 
 
@@ -145,6 +162,7 @@ def deactivate_student(student_id):
 
 @admin_bp.route('/drives', methods=['GET'])
 @role_required('admin')
+@cache.cached(timeout=60, key_prefix='admin_drives')
 def list_drives():
     drives = db.session.query(PlacementDrive, CompanyProfile).join(
         CompanyProfile, PlacementDrive.company_id == CompanyProfile.id
@@ -171,6 +189,7 @@ def approve_drive(drive_id):
     drive = PlacementDrive.query.get_or_404(drive_id)
     drive.status = 'approved'
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Drive approved'})
 
 
@@ -180,6 +199,7 @@ def reject_drive(drive_id):
     drive = PlacementDrive.query.get_or_404(drive_id)
     drive.status = 'rejected'
     db.session.commit()
+    _clear_admin_cache()
     return jsonify({'message': 'Drive rejected'})
 
 

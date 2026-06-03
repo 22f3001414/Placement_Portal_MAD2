@@ -5,7 +5,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 from flask import Flask, render_template, jsonify
 from flask_cors import CORS
 from config import Config
-from extensions import db, jwt
+from extensions import db, jwt, cache
+
+
+celery = None  # populated by create_app(); imported by tasks/tasks.py
 
 
 def create_app():
@@ -17,16 +20,26 @@ def create_app():
     )
     app.config.from_object(Config)
 
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads', 'resumes')
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
     db.init_app(app)
     jwt.init_app(app)
+    cache.init_app(app)
     CORS(app)
+
+    from tasks import make_celery
+    global celery
+    celery = make_celery(app)
 
     from routes.auth import auth_bp
     from routes.admin import admin_bp
     from routes.company import company_bp
+    from routes.student import student_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(company_bp, url_prefix='/api/company')
+    app.register_blueprint(student_bp, url_prefix='/api/student')
 
     @jwt.unauthorized_loader
     def unauthorized_callback(reason):
@@ -73,6 +86,9 @@ def _seed_admin():
         print('[SEED] Admin user created: admin@ppa.com / admin123')
 
 
+# Always call create_app() so the module-level `celery` global is populated
+# whether this file is run directly (python app.py) or loaded by Celery CLI.
+flask_app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True, port=5000)
+    flask_app.run(debug=True, port=5000)

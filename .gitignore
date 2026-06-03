@@ -11,6 +11,9 @@ __pycache__/
 # *.db
 # *.sqlite3
 
+# Flask instance folder
+backend/instance/
+
 # Environment
 .env
 .env.*
@@ -42,3 +45,12 @@ build/
 
 # Submission artifacts
 *.zip
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Generated files (uploads, exports, reports)
+backend/uploads/
+backend/exports/
+backend/reports/

@@ -6,7 +6,7 @@ const routes = [
 
   { path: '/admin/dashboard',   component: AdminDashboard,   meta: { requiresAuth: true, role: 'admin' } },
   { path: '/company/dashboard', component: CompanyDashboard, meta: { requiresAuth: true, role: 'company' } },
-  { path: '/student/dashboard', component: { template: '<div class="container mt-5"><h2>Student Dashboard — coming Week 3</h2></div>' }, meta: { requiresAuth: true, role: 'student' } },
+  { path: '/student/dashboard', component: StudentDashboard, meta: { requiresAuth: true, role: 'student' } },
 
   { path: '/:pathMatch(.*)*', redirect: '/login' }
 ]
