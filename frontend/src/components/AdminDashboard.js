@@ -9,6 +9,8 @@ const AdminDashboard = {
       // Overview
       stats: { students: 0, companies: 0, drives: 0 },
       statsLoading: true,
+      chartStats: null,
+      charts: { appStatus: null, driveStatus: null },
 
       // Companies
       companies: [],
@@ -67,31 +69,53 @@ const AdminDashboard = {
           <div v-if="statsLoading" class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
           </div>
-          <div v-else class="row g-4">
-            <div class="col-md-4">
-              <div class="card text-center border-0 shadow-sm h-100">
-                <div class="card-body py-4">
-                  <i class="bi bi-mortarboard text-success" style="font-size:2.5rem"></i>
-                  <h2 class="fw-bold mt-2 mb-0">{{ stats.students }}</h2>
-                  <p class="text-muted mb-0">Total Students</p>
+          <div v-else>
+            <div class="row g-4">
+              <div class="col-md-4">
+                <div class="card text-center border-0 shadow-sm h-100">
+                  <div class="card-body py-4">
+                    <i class="bi bi-mortarboard text-success" style="font-size:2.5rem"></i>
+                    <h2 class="fw-bold mt-2 mb-0">{{ stats.students }}</h2>
+                    <p class="text-muted mb-0">Total Students</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card text-center border-0 shadow-sm h-100">
+                  <div class="card-body py-4">
+                    <i class="bi bi-buildings text-warning" style="font-size:2.5rem"></i>
+                    <h2 class="fw-bold mt-2 mb-0">{{ stats.companies }}</h2>
+                    <p class="text-muted mb-0">Total Companies</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card text-center border-0 shadow-sm h-100">
+                  <div class="card-body py-4">
+                    <i class="bi bi-briefcase text-primary" style="font-size:2.5rem"></i>
+                    <h2 class="fw-bold mt-2 mb-0">{{ stats.drives }}</h2>
+                    <p class="text-muted mb-0">Total Drives</p>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="card text-center border-0 shadow-sm h-100">
-                <div class="card-body py-4">
-                  <i class="bi bi-buildings text-warning" style="font-size:2.5rem"></i>
-                  <h2 class="fw-bold mt-2 mb-0">{{ stats.companies }}</h2>
-                  <p class="text-muted mb-0">Total Companies</p>
+
+            <!-- Charts row -->
+            <div v-if="chartStats" class="row g-4 mt-1">
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="fw-semibold mb-3 text-center text-muted">Application Status Breakdown</h6>
+                    <canvas ref="appChart" style="max-height:260px"></canvas>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card text-center border-0 shadow-sm h-100">
-                <div class="card-body py-4">
-                  <i class="bi bi-briefcase text-primary" style="font-size:2.5rem"></i>
-                  <h2 class="fw-bold mt-2 mb-0">{{ stats.drives }}</h2>
-                  <p class="text-muted mb-0">Total Drives</p>
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body">
+                    <h6 class="fw-semibold mb-3 text-center text-muted">Drives by Status</h6>
+                    <canvas ref="driveChart" style="max-height:260px"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -293,6 +317,9 @@ const AdminDashboard = {
       if (tab === 'companies') this.loadCompanies()
       else if (tab === 'students') this.loadStudents()
       else if (tab === 'drives') this.loadDrives()
+      else if (tab === 'overview' && this.chartStats) {
+        this.$nextTick(() => this.renderCharts())
+      }
     },
 
     statusBadge(status) {
@@ -315,10 +342,61 @@ const AdminDashboard = {
     async loadStats() {
       this.statsLoading = true
       try {
-        const data = await api.get('/api/admin/dashboard')
+        const [data, chartData] = await Promise.all([
+          api.get('/api/admin/dashboard'),
+          api.get('/api/admin/stats')
+        ])
         this.stats = data
+        this.chartStats = chartData
       } catch (_) {}
       this.statsLoading = false
+      this.$nextTick(() => this.renderCharts())
+    },
+
+    renderCharts() {
+      const appCtx = this.$refs.appChart
+      if (appCtx && this.chartStats) {
+        if (this.charts.appStatus) this.charts.appStatus.destroy()
+        const d = this.chartStats.application_status
+        this.charts.appStatus = new Chart(appCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Applied', 'Shortlisted', 'Selected', 'Rejected'],
+            datasets: [{
+              data: [d.applied || 0, d.shortlisted || 0, d.selected || 0, d.rejected || 0],
+              backgroundColor: ['#6c757d', '#ffc107', '#198754', '#dc3545'],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        })
+      }
+
+      const driveCtx = this.$refs.driveChart
+      if (driveCtx && this.chartStats) {
+        if (this.charts.driveStatus) this.charts.driveStatus.destroy()
+        const d = this.chartStats.drive_status
+        this.charts.driveStatus = new Chart(driveCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Pending', 'Approved', 'Closed', 'Rejected'],
+            datasets: [{
+              label: 'Drives',
+              data: [d.pending || 0, d.approved || 0, d.closed || 0, d.rejected || 0],
+              backgroundColor: ['#ffc107', '#198754', '#6c757d', '#dc3545'],
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } }
+          }
+        })
+      }
     },
 
     async loadCompanies() {

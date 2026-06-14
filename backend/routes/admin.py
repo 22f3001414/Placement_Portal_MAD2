@@ -11,6 +11,7 @@ def _clear_admin_cache():
     cache.delete('admin_companies')
     cache.delete('admin_students')
     cache.delete('admin_drives')
+    cache.delete('admin_stats')
 
 
 @admin_bp.route('/dashboard', methods=['GET'])
@@ -24,6 +25,19 @@ def dashboard():
         'students': total_students,
         'companies': total_companies,
         'drives': total_drives
+    })
+
+
+@admin_bp.route('/stats', methods=['GET'])
+@role_required('admin')
+@cache.cached(timeout=120, key_prefix='admin_stats')
+def stats():
+    from sqlalchemy import func
+    app_rows = db.session.query(Application.status, func.count(Application.id)).group_by(Application.status).all()
+    drive_rows = db.session.query(PlacementDrive.status, func.count(PlacementDrive.id)).group_by(PlacementDrive.status).all()
+    return jsonify({
+        'application_status': {s: c for s, c in app_rows},
+        'drive_status': {s: c for s, c in drive_rows}
     })
 
 
