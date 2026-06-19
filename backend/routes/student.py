@@ -166,6 +166,22 @@ def upload_resume():
     return jsonify({'message': 'Resume uploaded successfully.', 'filename': filename})
 
 
+# ── Resume Download ───────────────────────────────────────────────────────
+
+@student_bp.route('/resume/download', methods=['GET'])
+@role_required('student')
+def download_resume():
+    sp, err = _get_student_profile()
+    if err:
+        return err
+    if not sp.resume_filename:
+        return jsonify({'error': 'No resume uploaded yet.'}), 404
+    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], sp.resume_filename)
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Resume file not found on server.'}), 404
+    return send_file(filepath, as_attachment=False, download_name='my_resume.pdf', mimetype='application/pdf')
+
+
 # ── Drives (with optional search) ────────────────────────────────────────
 
 @student_bp.route('/drives', methods=['GET'])

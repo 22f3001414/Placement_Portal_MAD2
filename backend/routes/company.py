@@ -2,7 +2,8 @@ from flask import Blueprint, jsonify, request
 from extensions import db
 from models.models import CompanyProfile, PlacementDrive, Application, StudentProfile, User
 from routes.utils import role_required, get_current_user_id
-from datetime import datetime
+from datetime import datetime, date
+from sqlalchemy import func
 
 company_bp = Blueprint('company', __name__)
 
@@ -39,6 +40,15 @@ def dashboard():
             'created_at': drive.created_at.isoformat() if drive.created_at else None
         })
 
+    drive_ids = [d.id for d in drives]
+    if drive_ids:
+        status_rows = db.session.query(
+            Application.status, func.count(Application.id)
+        ).filter(Application.drive_id.in_(drive_ids)).group_by(Application.status).all()
+        agg = {s: c for s, c in status_rows}
+    else:
+        agg = {}
+
     return jsonify({
         'profile': {
             'id': cp.id,
@@ -47,7 +57,14 @@ def dashboard():
             'website': cp.website,
             'approval_status': cp.approval_status
         },
-        'drives': drives_data
+        'drives': drives_data,
+        'stats': {
+            'applied': agg.get('applied', 0),
+            'shortlisted': agg.get('shortlisted', 0),
+            'selected': agg.get('selected', 0),
+            'rejected': agg.get('rejected', 0),
+            'total': sum(agg.values())
+        }
     })
 
 
@@ -77,6 +94,9 @@ def create_drive():
         deadline = datetime.fromisoformat(deadline_str)
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid deadline format. Use ISO 8601.'}), 400
+
+    if deadline.date() < date.today():
+        return jsonify({'error': 'Deadline must be a future date.'}), 400
 
     drive = PlacementDrive(
         company_id=cp.id,

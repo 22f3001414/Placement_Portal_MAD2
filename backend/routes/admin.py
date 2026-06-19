@@ -1,4 +1,6 @@
-from flask import Blueprint, jsonify, request
+import os
+import re
+from flask import Blueprint, jsonify, request, send_file
 from extensions import db, cache
 from models.models import User, StudentProfile, CompanyProfile, PlacementDrive, Application
 from routes.utils import role_required
@@ -240,3 +242,38 @@ def drive_applications(drive_id):
             'status': app.status
         })
     return jsonify(result)
+
+
+# ── Reports ─────────────────────────────────────────────────────────────────
+
+def _reports_dir():
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports')
+
+
+@admin_bp.route('/reports', methods=['GET'])
+@role_required('admin')
+def list_reports():
+    rdir = _reports_dir()
+    if not os.path.exists(rdir):
+        return jsonify([])
+    files = sorted([f for f in os.listdir(rdir) if f.endswith('.html')], reverse=True)
+    return jsonify(files)
+
+
+@admin_bp.route('/reports/generate', methods=['POST'])
+@role_required('admin')
+def generate_report():
+    from tasks.tasks import send_monthly_report
+    task = send_monthly_report.delay()
+    return jsonify({'task_id': task.id, 'message': 'Report generation started.'}), 202
+
+
+@admin_bp.route('/reports/<filename>', methods=['GET'])
+@role_required('admin')
+def download_report(filename):
+    if not re.match(r'^[\w\-]+\.html$', filename):
+        return jsonify({'error': 'Invalid filename.'}), 400
+    filepath = os.path.join(_reports_dir(), filename)
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Report not found.'}), 404
+    return send_file(filepath, mimetype='text/html')
