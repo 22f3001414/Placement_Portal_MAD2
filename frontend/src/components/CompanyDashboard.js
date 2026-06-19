@@ -27,7 +27,10 @@ const CompanyDashboard = {
       applicantsLoading: false,
       applicantMsg: { text: '', type: '' },
 
-      pageMsg: { text: '', type: '' }
+      pageMsg: { text: '', type: '' },
+
+      // Aggregate stats
+      stats: null
     }
   },
   template: `
@@ -79,6 +82,42 @@ const CompanyDashboard = {
 
           <!-- Page-level alert -->
           <div v-if="pageMsg.text" class="alert" :class="'alert-' + pageMsg.type">{{ pageMsg.text }}</div>
+
+          <!-- ── Aggregate Stats ── -->
+          <div v-if="stats && profile.approval_status === 'approved'" class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                  <h4 class="fw-bold mb-0 text-secondary">{{ stats.total }}</h4>
+                  <small class="text-muted">Total Applications</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                  <h4 class="fw-bold mb-0 text-warning">{{ stats.shortlisted }}</h4>
+                  <small class="text-muted">Shortlisted</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                  <h4 class="fw-bold mb-0 text-success">{{ stats.selected }}</h4>
+                  <small class="text-muted">Selected</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                  <h4 class="fw-bold mb-0 text-danger">{{ stats.rejected }}</h4>
+                  <small class="text-muted">Rejected</small>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- ── My Drives ── -->
           <div class="card border-0 shadow-sm mb-4">
@@ -163,7 +202,8 @@ const CompanyDashboard = {
                   </div>
                   <div class="col-md-6">
                     <label class="form-label fw-semibold">Application Deadline <span class="text-danger">*</span></label>
-                    <input v-model="form.deadline" type="date" class="form-control" required />
+                    <input v-model="form.deadline" type="date" class="form-control"
+                           :min="new Date().toISOString().slice(0,10)" required />
                   </div>
                 </div>
                 <button type="submit" class="btn btn-warning fw-semibold mt-4" :disabled="formLoading">
@@ -258,6 +298,7 @@ const CompanyDashboard = {
         const data = await api.get('/api/company/dashboard')
         this.profile = data.profile
         this.drives = data.drives
+        this.stats = data.stats || null
       } catch (err) {
         this.pageMsg = { text: err.data?.error || 'Failed to load dashboard.', type: 'danger' }
       }

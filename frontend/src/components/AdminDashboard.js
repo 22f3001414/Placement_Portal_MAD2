@@ -30,7 +30,13 @@ const AdminDashboard = {
       driveMsg: { text: '', type: '' },
       expandedDriveId: null,
       driveApplicants: [],
-      applicantsLoading: false
+      applicantsLoading: false,
+
+      // Reports
+      reports: [],
+      reportsLoading: false,
+      reportGenMsg: { text: '', type: '' },
+      reportGenLoading: false
     }
   },
   template: `
@@ -60,6 +66,11 @@ const AdminDashboard = {
           <li class="nav-item">
             <a class="nav-link" :class="{active: activeTab==='drives'}" href="#" @click.prevent="switchTab('drives')">
               <i class="bi bi-briefcase me-1"></i>Drives
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" :class="{active: activeTab==='reports'}" href="#" @click.prevent="switchTab('reports')">
+              <i class="bi bi-file-earmark-bar-graph me-1"></i>Reports
             </a>
           </li>
         </ul>
@@ -307,6 +318,47 @@ const AdminDashboard = {
           </div>
         </div>
 
+        <!-- ── REPORTS ── -->
+        <div v-if="activeTab==='reports'">
+          <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+            <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-bar-graph me-2 text-primary"></i>Monthly Placement Reports</h5>
+            <button class="btn btn-primary btn-sm" @click="generateReport" :disabled="reportGenLoading">
+              <span v-if="reportGenLoading" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-lightning me-1"></i>
+              {{ reportGenLoading ? 'Generating…' : 'Generate Report Now' }}
+            </button>
+          </div>
+
+          <div v-if="reportGenMsg.text" class="alert py-2" :class="'alert-' + reportGenMsg.type">{{ reportGenMsg.text }}</div>
+
+          <div v-if="reportsLoading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>
+          <div v-else-if="reports.length === 0" class="text-muted">
+            No reports generated yet. Click "Generate Report Now" to create one.
+          </div>
+          <div v-else class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>Report File</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in reports" :key="r">
+                  <td><i class="bi bi-file-earmark-text me-2 text-primary"></i>{{ r }}</td>
+                  <td>
+                    <button class="btn btn-outline-primary btn-sm" @click="viewReport(r)">
+                      <i class="bi bi-eye me-1"></i>View
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   `,
@@ -320,6 +372,7 @@ const AdminDashboard = {
       else if (tab === 'overview' && this.chartStats) {
         this.$nextTick(() => this.renderCharts())
       }
+      else if (tab === 'reports') this.loadReports()
     },
 
     statusBadge(status) {
@@ -471,6 +524,44 @@ const AdminDashboard = {
         this.driveApplicants = await api.get(`/api/admin/drives/${driveId}/applications`)
       } catch (_) {}
       this.applicantsLoading = false
+    },
+
+    async loadReports() {
+      this.reportsLoading = true
+      try {
+        this.reports = await api.get('/api/admin/reports')
+      } catch (_) {}
+      this.reportsLoading = false
+    },
+
+    async generateReport() {
+      this.reportGenLoading = true
+      this.reportGenMsg = { text: '', type: '' }
+      try {
+        await api.post('/api/admin/reports/generate')
+        // Wait 3s for Celery to complete, then reload list
+        setTimeout(async () => {
+          await this.loadReports()
+          this.reportGenMsg = { text: 'Report generated successfully.', type: 'success' }
+          this.reportGenLoading = false
+          setTimeout(() => { this.reportGenMsg = { text: '', type: '' } }, 4000)
+        }, 3000)
+      } catch (err) {
+        this.reportGenMsg = { text: err.data?.error || 'Failed to generate report. Is Celery running?', type: 'danger' }
+        this.reportGenLoading = false
+      }
+    },
+
+    async viewReport(filename) {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch(`http://localhost:5000/api/admin/reports/${filename}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (!res.ok) return
+        const blob = await res.blob()
+        window.open(URL.createObjectURL(blob), '_blank')
+      } catch (_) {}
     }
   },
   mounted() {

@@ -36,16 +36,6 @@ const StudentDashboard = {
       pageMsg: { text: '', type: '' }
     }
   },
-  computed: {
-    filteredDrives() {
-      const q = this.driveSearch.trim().toLowerCase()
-      if (!q) return this.drives
-      return this.drives.filter(d =>
-        d.job_title.toLowerCase().includes(q) ||
-        d.company_name.toLowerCase().includes(q)
-      )
-    }
-  },
   template: `
     <div>
       <Navbar role="student" :userEmail="userEmail" />
@@ -75,8 +65,11 @@ const StudentDashboard = {
                         <span v-if="profile.year"> &bull; Year {{ profile.year }}</span>
                         <span v-if="profile.cgpa != null"> &bull; CGPA {{ profile.cgpa }}</span>
                       </span>
-                      <div v-if="profile.resume_filename" class="mt-1">
+                      <div v-if="profile.resume_filename" class="mt-1 d-flex align-items-center gap-2">
                         <span class="badge bg-success"><i class="bi bi-file-earmark-pdf me-1"></i>Resume uploaded</span>
+                        <button class="btn btn-outline-secondary btn-sm py-0" @click="viewResume">
+                          <i class="bi bi-eye me-1"></i>View
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -318,7 +311,25 @@ const StudentDashboard = {
       this.editLoading = false
     },
 
-    // ── Resume upload ─────────────────────────────────────────────────────
+    // ── Resume view/upload ────────────────────────────────────────────────
+    async viewResume() {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch('http://localhost:5000/api/student/resume/download', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          this.resumeMsg = { text: data.error || 'Could not load resume.', type: 'danger' }
+          return
+        }
+        const blob = await res.blob()
+        window.open(URL.createObjectURL(blob), '_blank')
+      } catch (_) {
+        this.resumeMsg = { text: 'Failed to open resume.', type: 'danger' }
+      }
+    },
+
     onResumeSelect(e) {
       this.resumeFile = e.target.files[0] || null
       this.resumeMsg = { text: '', type: '' }
