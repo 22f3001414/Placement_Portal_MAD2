@@ -50,6 +50,7 @@ const Navbar = {
       } catch (_) { /* stateless logout, ignore errors */ }
       localStorage.removeItem('token')
       localStorage.removeItem('role')
+      localStorage.removeItem('userEmail')
       this.$router.push('/login')
     }
   }

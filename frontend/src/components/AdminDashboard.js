@@ -28,6 +28,7 @@ const AdminDashboard = {
       drives: [],
       drivesLoading: false,
       driveMsg: { text: '', type: '' },
+      driveSearch: '',
       expandedDriveId: null,
       driveApplicants: [],
       applicantsLoading: false,
@@ -243,6 +244,13 @@ const AdminDashboard = {
 
         <!-- ── DRIVES ── -->
         <div v-if="activeTab==='drives'">
+          <div class="d-flex gap-2 mb-3">
+            <input v-model="driveSearch" type="text" class="form-control w-auto" placeholder="Search by title or company…" @keyup.enter="loadDrives" />
+            <button class="btn btn-outline-secondary" @click="loadDrives">
+              <i class="bi bi-search"></i>
+            </button>
+          </div>
+
           <div v-if="driveMsg.text" class="alert" :class="'alert-' + driveMsg.type" role="alert">
             {{ driveMsg.text }}
           </div>
@@ -495,7 +503,8 @@ const AdminDashboard = {
     async loadDrives() {
       this.drivesLoading = true
       try {
-        this.drives = await api.get('/api/admin/drives')
+        const q = this.driveSearch.trim()
+        this.drives = await api.get('/api/admin/drives' + (q ? `?q=${encodeURIComponent(q)}` : ''))
       } catch (_) {}
       this.drivesLoading = false
     },

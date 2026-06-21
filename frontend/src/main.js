@@ -23,6 +23,7 @@ window.api = {
     if (res.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('role')
+      localStorage.removeItem('userEmail')
       router.push('/login')
     }
 

@@ -109,6 +109,7 @@ const LoginPage = {
 
         localStorage.setItem('token', data.access_token)
         localStorage.setItem('role', data.role)
+        localStorage.setItem('userEmail', data.email)
 
         const dashboardMap = {
           admin: '/admin/dashboard',

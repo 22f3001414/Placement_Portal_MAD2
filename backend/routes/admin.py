@@ -11,8 +11,11 @@ admin_bp = Blueprint('admin', __name__)
 def _clear_admin_cache():
     cache.delete('admin_dashboard')
     cache.delete('admin_companies')
+    cache.delete('admin_companies_')
     cache.delete('admin_students')
+    cache.delete('admin_students_')
     cache.delete('admin_drives')
+    cache.delete('admin_drives_')
     cache.delete('admin_stats')
 
 
@@ -82,7 +85,6 @@ def approve_company(company_id):
     cp = CompanyProfile.query.get_or_404(company_id)
     cp.approval_status = 'approved'
     db.session.commit()
-    cache.delete_memoized(list_companies)
     _clear_admin_cache()
     return jsonify({'message': 'Company approved'})
 
@@ -178,11 +180,20 @@ def deactivate_student(student_id):
 
 @admin_bp.route('/drives', methods=['GET'])
 @role_required('admin')
-@cache.cached(timeout=60, key_prefix='admin_drives')
+@cache.cached(timeout=60, key_prefix=lambda: f'admin_drives_{request.args.get("q","")}')
 def list_drives():
-    drives = db.session.query(PlacementDrive, CompanyProfile).join(
+    q = request.args.get('q', '').strip()
+    query = db.session.query(PlacementDrive, CompanyProfile).join(
         CompanyProfile, PlacementDrive.company_id == CompanyProfile.id
-    ).all()
+    )
+    if q:
+        query = query.filter(
+            db.or_(
+                PlacementDrive.job_title.ilike(f'%{q}%'),
+                CompanyProfile.company_name.ilike(f'%{q}%')
+            )
+        )
+    drives = query.all()
     result = []
     for drive, cp in drives:
         applicant_count = Application.query.filter_by(drive_id=drive.id).count()
