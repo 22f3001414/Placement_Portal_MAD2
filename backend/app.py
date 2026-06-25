@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from flask import Flask, render_template, jsonify
 from flask_cors import CORS
 from config import Config
-from extensions import db, jwt, cache
+from extensions import db, jwt, cache, mail
 
 
 celery = None  # populated by create_app(); imported by tasks/tasks.py
@@ -26,6 +26,7 @@ def create_app():
     db.init_app(app)
     jwt.init_app(app)
     cache.init_app(app)
+    mail.init_app(app)
     CORS(app)
 
     from tasks import make_celery

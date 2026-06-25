@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from celery.schedules import crontab
 
@@ -33,3 +34,12 @@ class Config:
     CACHE_TYPE = 'RedisCache'
     CACHE_REDIS_URL = 'redis://localhost:6379/1'   # DB 1 to separate from Celery
     CACHE_DEFAULT_TIMEOUT = 120                     # 2 minutes default
+    
+    # Flask-Mail SMTP Configuration
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'shirsamaitra@gmail.com')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'bkln ldgq udet asiq')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'shirsamaitra@gmail.com')

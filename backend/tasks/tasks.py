@@ -3,7 +3,8 @@ import os
 from datetime import datetime, timedelta
 
 from app import celery
-
+from flask_mail import Message
+from extensions import mail
 
 # ── Job a: Daily drive reminders ──────────────────────────────────────────
 
@@ -22,21 +23,24 @@ def send_drive_reminders():
     ).all()
 
     count = 0
-    for drive in upcoming:
-        for sp in StudentProfile.query.all():
-            already = Application.query.filter_by(student_id=sp.id, drive_id=drive.id).first()
-            if not already:
-                user = User.query.get(sp.user_id)
-                print(
-                    f'[REMINDER] To: {user.email} | '
-                    f'Drive: "{drive.job_title}" | '
-                    f'Deadline: {drive.deadline.date()}'
-                )
-                count += 1
+    
+    with mail.connect() as conn:
+        for drive in upcoming:
+            for sp in StudentProfile.query.all():
+                already = Application.query.filter_by(student_id=sp.id, drive_id=drive.id).first()
+                if not already:
+                    user = User.query.get(sp.user_id)
+                    msg = Message(
+                            subject=f"Action Required: '{drive.job_title}' Deadline Approaching",
+                            recipients=[user.email],
+                            body=f"Hello {sp.name},\n\nThis is a reminder that the placement drive for '{drive.job_title}' at {drive.company.company_name} is closing on {drive.deadline.date()}.\n\nLog in to the Placement Portal to submit your application.\n\nBest Regards,\nPlacement Cell"
+                        )
+                    conn.send(msg)
+                    count += 1
 
-    msg = f'[send_drive_reminders] Sent {count} reminder(s).'
-    print(msg)
-    return msg
+    msg_log = f'[send_drive_reminders] Sent {count} reminder email(s).'
+    print(msg_log)
+    return msg_log
 
 
 # ── Job b: Monthly HTML activity report for admin ─────────────────────────
@@ -44,7 +48,7 @@ def send_drive_reminders():
 @celery.task(name='tasks.tasks.send_monthly_report')
 def send_monthly_report():
     """Generate HTML monthly placement report for admin. Scheduled 1st of every month."""
-    from models.models import PlacementDrive, Application
+    from models.models import PlacementDrive, Application, User
 
     now = datetime.utcnow()
     total_drives = PlacementDrive.query.count()
@@ -95,9 +99,23 @@ def send_monthly_report():
     with open(filename, 'w') as f:
         f.write(html)
 
+    # Fetch admin and send the email
+    admin = User.query.filter_by(role='admin').first()
+    if admin:
+        msg = Message(
+            subject=f"Placement Portal: Monthly Activity Report - {now.strftime('%B %Y')}",
+            # recipients=[admin.email],
+            recipients=['shirsamaitra@gmail.com'], # <-- Hardcode your email here temporarily
+            html=html
+        )
+        try:
+            mail.send(msg)
+            print(f"[MONTHLY REPORT] Email successfully sent to {admin.email}")
+        except Exception as e:
+            print(f"[MONTHLY REPORT] Email failed to send: {str(e)}")
+
     print(f'[MONTHLY REPORT] Saved: {filename}')
-    print(f'[MONTHLY REPORT] Stats: drives={total_drives}, applied={total_applied}, selected={total_selected}')
-    return f'Report saved: {filename}'
+    return f'Report saved and emailed to Admin.'
 
 
 # ── Job c: User-triggered — export student's own applications as CSV ───────
