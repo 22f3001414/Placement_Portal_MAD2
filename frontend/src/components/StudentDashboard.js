@@ -13,6 +13,9 @@ const StudentDashboard = {
       // Drive search
       driveSearch: '',
 
+      // Selected drive for the modal
+      selectedDriveDetails: null,
+
       // Profile edit
       editingProfile: false,
       editForm: { name: '', branch: '', cgpa: '', year: '' },
@@ -184,10 +187,20 @@ const StudentDashboard = {
                     <td>{{ d.eligible_branches || 'All' }}</td>
                     <td>{{ d.eligible_years || 'All' }}</td>
                     <td>
-                      <button v-if="!d.already_applied" class="btn btn-success btn-sm" @click="applyToDrive(d)">
-                        <i class="bi bi-send me-1"></i>Apply
-                      </button>
-                      <span v-else class="badge bg-secondary">Applied</span>
+                      <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <button class="btn btn-outline-primary btn-sm" 
+                                @click="viewDriveDetails(d)" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#driveDetailsModal">
+                          <i class="bi bi-info-circle me-1"></i>View Details
+                        </button>
+                        
+                        <button v-if="!d.already_applied" class="btn btn-success btn-sm" @click="applyToDrive(d)">
+                          <i class="bi bi-send me-1"></i>Apply
+                        </button>
+                        <span v-else class="badge bg-secondary">Applied</span>
+                      </div>
+                      
                       <div v-if="applyMsg.driveId === d.id && applyMsg.text"
                         class="mt-1 small" :class="applyMsg.type==='success'?'text-success':'text-danger'">
                         {{ applyMsg.text }}
@@ -242,6 +255,53 @@ const StudentDashboard = {
           </div>
 
         </div>
+
+      </div>
+      <div class="modal fade" id="driveDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content" v-if="selectedDriveDetails">
+            
+            <div class="modal-header bg-light">
+              <h5 class="modal-title fw-bold">
+                <i class="bi bi-briefcase text-primary me-2"></i>{{ selectedDriveDetails.job_title }}
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+              <div class="d-flex align-items-center mb-4">
+                <div class="rounded bg-secondary text-white d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                  <i class="bi bi-building"></i>
+                </div>
+                <div>
+                  <h5 class="mb-0 fw-bold">{{ selectedDriveDetails.company_name }}</h5>
+                  <span class="text-muted small">
+                    <i class="bi bi-clock me-1"></i>Application Deadline: {{ selectedDriveDetails.deadline ? selectedDriveDetails.deadline.slice(0,10) : '—' }}
+                  </span>
+                </div>
+              </div>
+              
+              <h6 class="fw-bold border-bottom pb-2 text-dark"><i class="bi bi-card-text me-2"></i>Job Description</h6>
+              <p style="white-space: pre-wrap;" class="text-muted mb-4">{{ selectedDriveDetails.job_description || 'No description provided.' }}</p>
+              
+              <h6 class="fw-bold border-bottom pb-2 text-dark"><i class="bi bi-ui-checks me-2"></i>Eligibility Criteria</h6>
+              <ul class="list-unstyled mb-0 text-muted">
+                <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>Eligible Branches:</strong> {{ selectedDriveDetails.eligible_branches || 'All Branches' }}</li>
+                <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i><strong>Minimum CGPA:</strong> {{ selectedDriveDetails.min_cgpa || 'No minimum requirement' }}</li>
+                <li><i class="bi bi-check2-circle text-success me-2"></i><strong>Eligible Years:</strong> {{ selectedDriveDetails.eligible_years || 'All Years' }}</li>
+              </ul>
+            </div>
+            
+            <div class="modal-footer bg-light">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button v-if="!selectedDriveDetails.already_applied" class="btn btn-success" @click="applyToDrive(selectedDriveDetails)">
+                <i class="bi bi-send me-1"></i>Apply Now
+              </button>
+              <span v-else class="badge bg-secondary px-3 py-2 fs-6">Already Applied</span>
+            </div>
+            
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -256,6 +316,14 @@ const StudentDashboard = {
     },
   },
   methods: {
+    
+    viewDriveDetails(drive) {
+      // Populates the modal data. 
+      // Bootstrap's data-bs-toggle attribute handles physically opening the modal window.
+      this.selectedDriveDetails = drive;
+      this.applyMsg = { driveId: null, text: '', type: '' }; // Clear any old application messages
+    },
+
     statusBadge(status) {
       return {
         'bg-secondary': status === 'applied',

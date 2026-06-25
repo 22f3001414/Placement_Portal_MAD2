@@ -6,10 +6,10 @@ __pycache__/
 *.pyd
 .Python
 
-# Database
-# backend/ppa.db
-# *.db
-# *.sqlite3
+#Database
+backend/ppa.db
+*.db
+*.sqlite3
 
 # Flask instance folder
 backend/instance/
