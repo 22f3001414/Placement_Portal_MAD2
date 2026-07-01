@@ -18,6 +18,12 @@ backend/instance/
 .env
 .env.*
 
+# docs
+*.docx
+
+# PNGs
+*.png
+
 # PDF
 *.pdf
 

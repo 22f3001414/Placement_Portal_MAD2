@@ -1,0 +1,303 @@
+openapi: 3.0.0
+info:
+  title: Placement Portal API
+  description: REST API documentation for the multi-role campus placement system built with Flask, Vue.js, and Celery.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==============================
+  # AUTHENTICATION ROUTES
+  # ==============================
+  /auth/login:
+    post:
+      summary: User Login
+      tags: [Authentication]
+      security: [] # No auth required to login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: admin@ppa.com
+                password:
+                  type: string
+                  example: admin123
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  role:
+                    type: string
+        '401':
+          description: Invalid credentials
+        '403':
+          description: Account blacklisted or pending approval
+
+  /auth/register-student:
+    post:
+      summary: Register a new Student
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                name:
+                  type: string
+                branch:
+                  type: string
+                cgpa:
+                  type: number
+                  format: float
+                year:
+                  type: integer
+      responses:
+        '201':
+          description: Student registered successfully
+
+  /auth/register-company:
+    post:
+      summary: Register a new Company
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                company_name:
+                  type: string
+                hr_contact:
+                  type: string
+                website:
+                  type: string
+      responses:
+        '201':
+          description: Company registered successfully (Pending Admin Approval)
+
+  # ==============================
+  # ADMIN ROUTES
+  # ==============================
+  /admin/dashboard:
+    get:
+      summary: Get Admin Dashboard Statistics
+      tags: [Admin]
+      responses:
+        '200':
+          description: Returns system statistics (cached via Redis)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    type: object
+                  companies:
+                    type: array
+                    items:
+                      type: object
+                  students:
+                    type: array
+                    items:
+                      type: object
+
+  /admin/approve-company/{id}:
+    post:
+      summary: Approve a pending company account
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Company approved successfully
+
+  /admin/blacklist-company/{id}:
+    post:
+      summary: Blacklist an active company
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Company blacklisted
+
+  /admin/blacklist-student/{id}:
+    post:
+      summary: Blacklist a student
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Student blacklisted
+
+  # ==============================
+  # COMPANY ROUTES
+  # ==============================
+  /company/dashboard:
+    get:
+      summary: Get Company Dashboard Data
+      tags: [Company]
+      responses:
+        '200':
+          description: Returns company profile, drives, and applications
+
+  /company/drives:
+    post:
+      summary: Create a new Placement Drive
+      tags: [Company]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_title:
+                  type: string
+                job_description:
+                  type: string
+                eligible_branches:
+                  type: string
+                min_cgpa:
+                  type: number
+                  format: float
+                eligible_years:
+                  type: string
+                deadline:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Drive created successfully
+
+  /company/applications/{id}:
+    put:
+      summary: Update student application status
+      tags: [Company]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [shortlisted, selected, rejected]
+      responses:
+        '200':
+          description: Application status updated
+
+  # ==============================
+  # STUDENT ROUTES
+  # ==============================
+  /student/dashboard:
+    get:
+      summary: Get Student Dashboard Data
+      tags: [Student]
+      responses:
+        '200':
+          description: Returns student profile, available drives, and application history
+
+  /student/apply/{drive_id}:
+    post:
+      summary: Apply to a specific placement drive
+      tags: [Student]
+      parameters:
+        - in: path
+          name: drive_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully applied
+        '400':
+          description: Already applied or ineligible
+
+  /student/export-applications:
+    post:
+      summary: Trigger Async CSV Export
+      description: Dispatches a Celery task to generate a CSV of the student's applications.
+      tags: [Student]
+      responses:
+        '202':
+          description: Task accepted for background processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+
+  /student/export-applications/{task_id}:
+    get:
+      summary: Poll CSV Export Status
+      description: Checks the status of the Celery task and provides a download URL when complete.
+      tags: [Student]
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns task status (pending, done, failed)
