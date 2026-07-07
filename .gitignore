@@ -60,3 +60,5 @@ celerybeat.pid
 backend/uploads/
 backend/exports/
 backend/reports/
+
+dump.rdb
