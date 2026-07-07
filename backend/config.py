@@ -41,5 +41,5 @@ class Config:
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
     MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'shirsamaitra@gmail.com')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'bkln ldgq udet asiq')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'qdth hajh doml nvok')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'shirsamaitra@gmail.com')

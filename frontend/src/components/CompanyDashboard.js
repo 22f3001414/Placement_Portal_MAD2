@@ -1,9 +1,9 @@
 const CompanyDashboard = {
-  name: 'CompanyDashboard',
+  name: "CompanyDashboard",
   components: { Navbar },
   data() {
     return {
-      userEmail: '',
+      userEmail: "",
       loading: true,
       profile: null,
       drives: [],
@@ -11,27 +11,27 @@ const CompanyDashboard = {
       // Create drive form
       showForm: false,
       formLoading: false,
-      formMsg: { text: '', type: '' },
+      formMsg: { text: "", type: "" },
       form: {
-        job_title: '',
-        job_description: '',
-        eligible_branches: '',
-        min_cgpa: '',
-        eligible_years: '',
-        deadline: ''
+        job_title: "",
+        job_description: "",
+        eligible_branches: "",
+        min_cgpa: "",
+        eligible_years: "",
+        deadline: "",
       },
 
       // Applicants panel
       selectedDrive: null,
       applicants: [],
       applicantsLoading: false,
-      applicantMsg: { text: '', type: '' },
+      applicantMsg: { text: "", type: "" },
 
-      pageMsg: { text: '', type: '' },
+      pageMsg: { text: "", type: "" },
 
       // Aggregate stats
-      stats: null
-    }
+      stats: null,
+    };
   },
   template: `
     <div>
@@ -237,6 +237,7 @@ const CompanyDashboard = {
                       <th>Year</th>
                       <th>Applied</th>
                       <th>Status</th>
+                      <th>Resume</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -249,6 +250,23 @@ const CompanyDashboard = {
                       <td>{{ a.applied_date ? a.applied_date.slice(0,10) : '—' }}</td>
                       <td>
                         <span class="badge" :class="appStatusBadge(a.status)">{{ a.status }}</span>
+                      </td>
+                      <td>
+                        <button
+                          v-if="a.resume_filename"
+                          class="btn btn-outline-primary btn-sm"
+                          @click="viewResume(a.application_id)"
+                        >
+                          <i class="bi bi-file-earmark-pdf me-1"></i>
+                          View Resume
+                        </button>
+
+                        <span
+                          v-else
+                          class="badge bg-secondary"
+                        >
+                          No Resume
+                        </span>
                       </td>
                       <td>
                         <div class="d-flex gap-1 flex-wrap">
@@ -277,41 +295,53 @@ const CompanyDashboard = {
   methods: {
     statusBadge(status) {
       return {
-        'bg-warning text-dark': status === 'pending',
-        'bg-success': status === 'approved',
-        'bg-danger': status === 'rejected'
-      }
+        "bg-warning text-dark": status === "pending",
+        "bg-success": status === "approved",
+        "bg-danger": status === "rejected",
+      };
     },
 
     appStatusBadge(status) {
       return {
-        'bg-secondary': status === 'applied',
-        'bg-warning text-dark': status === 'shortlisted',
-        'bg-success': status === 'selected',
-        'bg-danger': status === 'rejected'
-      }
+        "bg-secondary": status === "applied",
+        "bg-warning text-dark": status === "shortlisted",
+        "bg-success": status === "selected",
+        "bg-danger": status === "rejected",
+      };
     },
 
     async loadDashboard() {
-      this.loading = true
+      this.loading = true;
       try {
-        const data = await api.get('/api/company/dashboard')
-        this.profile = data.profile
-        this.drives = data.drives
-        this.stats = data.stats || null
+        const data = await api.get("/api/company/dashboard");
+        this.profile = data.profile;
+        this.drives = data.drives;
+        this.stats = data.stats || null;
       } catch (err) {
-        this.pageMsg = { text: err.data?.error || 'Failed to load dashboard.', type: 'danger' }
+        this.pageMsg = {
+          text: err.data?.error || "Failed to load dashboard.",
+          type: "danger",
+        };
       }
-      this.loading = false
+      this.loading = false;
     },
 
     async submitDrive() {
-      this.formMsg = { text: '', type: '' }
-      if (!this.form.job_title.trim()) { this.formMsg = { text: 'Job title is required.', type: 'danger' }; return }
-      if (!this.form.job_description.trim()) { this.formMsg = { text: 'Job description is required.', type: 'danger' }; return }
-      if (!this.form.deadline) { this.formMsg = { text: 'Deadline is required.', type: 'danger' }; return }
+      this.formMsg = { text: "", type: "" };
+      if (!this.form.job_title.trim()) {
+        this.formMsg = { text: "Job title is required.", type: "danger" };
+        return;
+      }
+      if (!this.form.job_description.trim()) {
+        this.formMsg = { text: "Job description is required.", type: "danger" };
+        return;
+      }
+      if (!this.form.deadline) {
+        this.formMsg = { text: "Deadline is required.", type: "danger" };
+        return;
+      }
 
-      this.formLoading = true
+      this.formLoading = true;
       try {
         const payload = {
           job_title: this.form.job_title.trim(),
@@ -319,51 +349,113 @@ const CompanyDashboard = {
           eligible_branches: this.form.eligible_branches.trim(),
           min_cgpa: this.form.min_cgpa ? parseFloat(this.form.min_cgpa) : 0.0,
           eligible_years: this.form.eligible_years.trim(),
-          deadline: this.form.deadline
-        }
-        await api.post('/api/company/drives', payload)
-        this.formMsg = { text: 'Drive posted successfully! Awaiting admin approval.', type: 'success' }
-        this.form = { job_title: '', job_description: '', eligible_branches: '', min_cgpa: '', eligible_years: '', deadline: '' }
-        this.showForm = false
-        await this.loadDashboard()
+          deadline: this.form.deadline,
+        };
+        await api.post("/api/company/drives", payload);
+        this.formMsg = {
+          text: "Drive posted successfully! Awaiting admin approval.",
+          type: "success",
+        };
+        this.form = {
+          job_title: "",
+          job_description: "",
+          eligible_branches: "",
+          min_cgpa: "",
+          eligible_years: "",
+          deadline: "",
+        };
+        this.showForm = false;
+        await this.loadDashboard();
       } catch (err) {
-        this.formMsg = { text: err.data?.error || 'Failed to create drive.', type: 'danger' }
+        this.formMsg = {
+          text: err.data?.error || "Failed to create drive.",
+          type: "danger",
+        };
       }
-      this.formLoading = false
+      this.formLoading = false;
+    },
+
+    async viewResume(applicationId) {
+      try {
+          const token = localStorage.getItem("token")
+
+          const response = await fetch(
+              `${api._base}/api/company/applications/${applicationId}/resume`,
+              {
+                  headers: {
+                      Authorization: `Bearer ${token}`
+                  }
+              }
+          )
+
+          if (!response.ok) {
+              const err = await response.json()
+              alert(err.error || "Unable to open resume.")
+              return
+          }
+
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          window.open(url, "_blank")
+
+          if (newWindow) {
+            newWindow.onload = () => URL.revokeObjectURL(url)
+          }
+      }
+      catch (err) {
+          console.error(err)
+          alert("Failed to load resume.")
+      }
     },
 
     async loadApplicants(drive) {
       if (this.selectedDrive && this.selectedDrive.id === drive.id) {
-        this.selectedDrive = null
-        this.applicants = []
-        return
+        this.selectedDrive = null;
+        this.applicants = [];
+        return;
       }
-      this.selectedDrive = drive
-      this.applicants = []
-      this.applicantsLoading = true
-      this.applicantMsg = { text: '', type: '' }
+      this.selectedDrive = drive;
+      this.applicants = [];
+      this.applicantsLoading = true;
+      this.applicantMsg = { text: "", type: "" };
       try {
-        this.applicants = await api.get(`/api/company/drives/${drive.id}/applications`)
+        this.applicants = await api.get(
+          `/api/company/drives/${drive.id}/applications`,
+     );
       } catch (err) {
-        this.applicantMsg = { text: err.data?.error || 'Failed to load applicants.', type: 'danger' }
+        this.applicantMsg = {
+          text: err.data?.error || "Failed to load applicants.",
+          type: "danger",
+        };
       }
-      this.applicantsLoading = false
+      this.applicantsLoading = false;
     },
 
     async updateStatus(applicant, newStatus) {
       try {
-        await api.put(`/api/company/applications/${applicant.application_id}/status`, { status: newStatus })
-        applicant.status = newStatus
-        this.applicantMsg = { text: `Status updated to "${newStatus}".`, type: 'success' }
-        await this.loadDashboard()
+        await api.put(
+          `/api/company/applications/${applicant.application_id}/status`,
+          { status: newStatus },
+        );
+        applicant.status = newStatus;
+        this.applicantMsg = {
+          text: `Status updated to "${newStatus}".`,
+          type: "success",
+        };
+        await this.loadDashboard();
       } catch (err) {
-        this.applicantMsg = { text: err.data?.error || 'Failed to update status.', type: 'danger' }
+        this.applicantMsg = {
+          text: err.data?.error || "Failed to update status.",
+          type: "danger",
+        };
       }
-      setTimeout(() => { this.applicantMsg = { text: '', type: '' } }, 3000)
-    }
+      setTimeout(() => {
+        this.applicantMsg = { text: "", type: "" };
+      }, 3000);
+    },
   },
   mounted() {
-    this.userEmail = localStorage.getItem('userEmail') || ''
-    this.loadDashboard()
-  }
-}
+    this.userEmail = localStorage.getItem("userEmail") || "";
+    this.loadDashboard();
+  },
+};

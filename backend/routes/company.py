@@ -1,9 +1,10 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from extensions import db
 from models.models import CompanyProfile, PlacementDrive, Application, StudentProfile, User
 from routes.utils import role_required, get_current_user_id
 from datetime import datetime, date
 from sqlalchemy import func
+import os
 
 company_bp = Blueprint('company', __name__)
 
@@ -141,7 +142,8 @@ def drive_applications(drive_id):
             'cgpa': sp.cgpa,
             'year': sp.year,
             'applied_date': app.applied_date.isoformat() if app.applied_date else None,
-            'status': app.status
+            'status': app.status,
+            'resume_filename': sp.resume_filename
         })
     return jsonify(result)
 
@@ -172,3 +174,39 @@ def update_application_status(application_id):
     app.status = new_status
     db.session.commit()
     return jsonify({'message': 'Application status updated.', 'status': app.status})
+
+@company_bp.route('/applications/<int:application_id>/resume', methods=['GET'])
+@role_required('company')
+def view_applicant_resume(application_id):
+    cp, err = _get_company_profile()
+    if err:
+        return err
+
+    application = Application.query.get_or_404(application_id)
+
+    drive = PlacementDrive.query.get_or_404(application.drive_id)
+
+    # Company can only access resumes for its own drives
+    if drive.company_id != cp.id:
+        return jsonify({'error': 'Access denied.'}), 403
+
+    student = StudentProfile.query.get_or_404(application.student_id)
+
+    if not student.resume_filename:
+        return jsonify({'error': 'Student has not uploaded a resume.'}), 404
+
+    resume_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'uploads',
+        'resumes',
+        student.resume_filename
+    )
+
+    if not os.path.exists(resume_path):
+        return jsonify({'error': 'Resume file not found.'}), 404
+
+    return send_file(
+        resume_path,
+        mimetype='application/pdf',
+        as_attachment=False
+    )

@@ -180,6 +180,12 @@ const AdminDashboard = {
                       <button v-if="c.approval_status !== 'rejected'" class="btn btn-danger btn-sm" @click="companyAction(c.id, 'reject')">Reject</button>
                       <button v-if="!c.is_blacklisted" class="btn btn-dark btn-sm" @click="companyAction(c.id, 'blacklist')">Blacklist</button>
                       <button v-if="c.is_active" class="btn btn-secondary btn-sm" @click="companyAction(c.id, 'deactivate')">Deactivate</button>
+                      <button
+                          v-else-if="!c.is_blacklisted"
+                          class="btn btn-success btn-sm"
+                          @click="companyAction(c.id, 'activate')">
+                          Activate
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -215,6 +221,7 @@ const AdminDashboard = {
                   <th>CGPA</th>
                   <th>Year</th>
                   <th>Status</th>
+                  <th>Resume</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -231,9 +238,32 @@ const AdminDashboard = {
                     <span v-else class="badge bg-success">Active</span>
                   </td>
                   <td>
+                    <button
+                      v-if="s.resume_filename"
+                      class="btn btn-outline-primary btn-sm"
+                      @click="viewStudentResume(s.id)"
+                    >
+                      <i class="bi bi-file-earmark-pdf me-1"></i>
+                      View
+                    </button>
+
+                    <span
+                      v-else
+                      class="badge bg-secondary"
+                    >
+                      No Resume
+                    </span>
+                  </td>
+                  <td>
                     <div class="d-flex gap-1">
                       <button v-if="!s.is_blacklisted" class="btn btn-dark btn-sm" @click="studentAction(s.id, 'blacklist')">Blacklist</button>
                       <button v-if="s.is_active" class="btn btn-secondary btn-sm" @click="studentAction(s.id, 'deactivate')">Deactivate</button>
+                      <button
+                        v-else-if="!s.is_blacklisted"
+                        class="btn btn-success btn-sm"
+                        @click="studentAction(s.id, 'activate')">
+                        Activate
+                    </button>
                     </div>
                   </td>
                 </tr>
@@ -305,6 +335,7 @@ const AdminDashboard = {
                               <th>CGPA</th>
                               <th>Applied</th>
                               <th>Status</th>
+                              <th>Resume</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -314,6 +345,15 @@ const AdminDashboard = {
                               <td>{{ a.cgpa != null ? a.cgpa : '—' }}</td>
                               <td>{{ a.applied_date ? a.applied_date.slice(0,10) : '—' }}</td>
                               <td><span class="badge" :class="appStatusBadge(a.status)">{{ a.status }}</span></td>
+                              <td>
+                                <button
+                                  class="btn btn-outline-primary btn-sm"
+                                  @click="viewStudentResume(a.student_id)"
+                                >
+                                  <i class="bi bi-file-earmark-pdf me-1"></i>
+                                  View Resume
+                                </button>
+                              </td>
                             </tr>
                           </tbody>
                         </table>
@@ -571,8 +611,38 @@ const AdminDashboard = {
         const blob = await res.blob()
         window.open(URL.createObjectURL(blob), '_blank')
       } catch (_) {}
+    },
+
+    async viewStudentResume(studentId) {
+        try {
+            const token = localStorage.getItem("token")
+
+            const response = await fetch(
+                `${api._base}/api/admin/students/${studentId}/resume`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            )
+
+            if (!response.ok) {
+                const err = await response.json()
+                alert(err.error || "Unable to open resume.")
+                return
+            }
+
+            const blob = await response.blob()
+            const url = URL.createObjectURL(blob)
+            window.open(url, "_blank")
+        }
+        catch (err) {
+            console.error(err)
+            alert("Failed to load resume.")
+        }
     }
   },
+
   mounted() {
     this.userEmail = localStorage.getItem('userEmail') || ''
     this.loadStats()

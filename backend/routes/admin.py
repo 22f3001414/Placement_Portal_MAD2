@@ -148,6 +148,7 @@ def list_students():
             'cgpa': sp.cgpa,
             'year': sp.year,
             'is_active': user.is_active,
+            'resume_filename': sp.resume_filename,
             'is_blacklisted': user.is_blacklisted,
             'created_at': user.created_at.isoformat() if user.created_at else None
         })
@@ -174,6 +175,16 @@ def deactivate_student(student_id):
     db.session.commit()
     _clear_admin_cache()
     return jsonify({'message': 'Student deactivated'})
+
+@admin_bp.route('/students/<int:student_id>/activate', methods=['PUT'])
+@role_required('admin')
+def activate_student(student_id):
+    sp = StudentProfile.query.get_or_404(student_id)
+    user = User.query.get_or_404(sp.user_id)
+    user.is_active = True
+    db.session.commit()
+    _clear_admin_cache()
+    return jsonify({'message': 'Student activated'})
 
 
 # ── Drives ─────────────────────────────────────────────────────────────────
@@ -288,3 +299,27 @@ def download_report(filename):
     if not os.path.exists(filepath):
         return jsonify({'error': 'Report not found.'}), 404
     return send_file(filepath, mimetype='text/html')
+
+@admin_bp.route('/students/<int:student_id>/resume', methods=['GET'])
+@role_required('admin')
+def view_student_resume(student_id):
+    student = StudentProfile.query.get_or_404(student_id)
+
+    if not student.resume_filename:
+        return jsonify({'error': 'Student has not uploaded a resume.'}), 404
+
+    resume_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'uploads',
+        'resumes',
+        student.resume_filename
+    )
+
+    if not os.path.exists(resume_path):
+        return jsonify({'error': 'Resume file not found.'}), 404
+
+    return send_file(
+        resume_path,
+        mimetype='application/pdf',
+        as_attachment=False
+    )
