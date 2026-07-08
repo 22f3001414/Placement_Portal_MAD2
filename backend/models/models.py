@@ -118,6 +118,12 @@ class Application(db.Model):
     drive_id = db.Column(db.Integer, db.ForeignKey('placement_drive.id'), nullable=False)
     applied_date = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='applied', nullable=False)  # applied | shortlisted | selected | rejected
+    # Interview Details (filled when the student is shortlisted)
+    interview_date = db.Column(db.DateTime, nullable=True)
+    interview_mode = db.Column(db.String(20), nullable=True)      # Online / Offline
+    interview_location = db.Column(db.String(255), nullable=True) # Meeting link or venue
+    interview_notes = db.Column(db.Text, nullable=True)
+    interview_scheduled_at = db.Column(db.DateTime, nullable=True)
 
     # Prevents a student from applying twice to the same drive
     __table_args__ = (
@@ -133,5 +139,13 @@ class Application(db.Model):
             'job_title': self.drive.job_title if self.drive else None,
             'company_name': self.drive.company.company_name if self.drive and self.drive.company else None,
             'applied_date': self.applied_date.isoformat() if self.applied_date else None,
-            'status': self.status
+            'status': self.status,
+            'interview_date': self.interview_date.isoformat() if self.interview_date else None,
+            'interview_mode': self.interview_mode,
+            'interview_location': self.interview_location,
+            'interview_notes': self.interview_notes,
+            'interview_scheduled_at': (
+                self.interview_scheduled_at.isoformat()
+                if self.interview_scheduled_at else None
+            )
         }

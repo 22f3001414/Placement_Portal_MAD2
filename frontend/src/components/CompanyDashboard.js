@@ -27,10 +27,22 @@ const CompanyDashboard = {
       applicantsLoading: false,
       applicantMsg: { text: "", type: "" },
 
+      // Interview Scheduling Modal
+      showInterviewModal: false,
+      selectedApplicant: null,
+
+      interviewForm: {
+          interview_date: "",
+          interview_mode: "Online",
+          interview_location: "",
+          interview_notes: ""
+      },
+
       pageMsg: { text: "", type: "" },
 
       // Aggregate stats
       stats: null,
+      minInterviewDate: "",
     };
   },
   template: `
@@ -271,7 +283,12 @@ const CompanyDashboard = {
                       <td>
                         <div class="d-flex gap-1 flex-wrap">
                           <template v-if="a.status === 'applied'">
-                            <button class="btn btn-sm btn-warning text-dark" @click="updateStatus(a, 'shortlisted')">Shortlist</button>
+                            <button
+                                class="btn btn-sm btn-warning text-dark"
+                                @click="openInterviewModal(a)"
+                            >
+                                Shortlist
+                            </button>
                             <button class="btn btn-sm btn-danger" @click="updateStatus(a, 'rejected')">Reject</button>
                           </template>
                           <template v-else-if="a.status === 'shortlisted'">
@@ -287,7 +304,131 @@ const CompanyDashboard = {
               </div>
             </div>
           </div>
+          <!-- Interview Scheduling Modal -->
+          <div
+              v-if="showInterviewModal"
+              class="modal fade show"
+              tabindex="-1"
+              style="display:block; background:rgba(0,0,0,0.5)"
+          >
+              <div class="modal-dialog">
+                  <div class="modal-content">
 
+                      <div class="modal-header">
+                          <div>
+
+                              <h5 class="modal-title fw-bold">
+                                  <i class="bi bi-calendar-event me-2 text-warning"></i>
+                                  Schedule Interview
+                              </h5>
+
+                              <div
+                                  v-if="selectedApplicant"
+                                  class="small text-muted mt-1"
+                              >
+                                  <strong>Student:</strong>
+                                  {{ selectedApplicant.name }}
+
+                                  <br>
+
+                                  <strong>Position:</strong>
+                                  {{ selectedDrive.job_title }}
+                              </div>
+
+                          </div>
+
+                          <button
+                              class="btn-close"
+                              @click="closeInterviewModal"
+                          ></button>
+                      </div>
+
+                      <div class="modal-body">
+
+                          <div class="mb-3">
+                              <label class="form-label">
+                                  Interview Date & Time <span class="text-danger">*</span>
+                              </label>
+
+                              <input
+                                  v-model="interviewForm.interview_date"
+                                  type="datetime-local"
+                                  class="form-control"
+                                  :min="minInterviewDate"
+                              >
+                          </div>
+
+                          <div class="mb-3">
+                              <label class="form-label">
+                                  Interview Mode <span class="text-danger">*</span>
+                              </label>
+
+                              <select
+                                  v-model="interviewForm.interview_mode"
+                                  class="form-select"
+                              >
+                                  <option>Online</option>
+                                  <option>Offline</option>
+                              </select>
+                          </div>
+
+                          <div class="mb-3">
+                              <label class="form-label">
+                                  Meeting Link / Venue <span class="text-danger">*</span>
+                              </label>
+
+                              <input
+                                  v-model="interviewForm.interview_location"
+                                  class="form-control"
+                                  :placeholder="
+                                      interviewForm.interview_mode === 'Online'
+                                          ? 'Paste Google Meet / Zoom / Teams link'
+                                          : 'Enter interview venue'
+                                  "
+                              >
+                          </div>
+
+                          <div class="mb-3">
+                              <label class="form-label">
+                                  Interview Notes
+                              </label>
+
+                              <textarea
+                                  v-model="interviewForm.interview_notes"
+                                  class="form-control"
+                                  rows="3"
+                                  placeholder="Optional instructions for the candidate..."
+                              ></textarea>
+                          </div>
+
+                      </div>
+
+                      <div class="modal-footer">
+
+                          <button
+                              class="btn btn-secondary"
+                              @click="closeInterviewModal"
+                          >
+                              Cancel
+                          </button>
+
+                          <button
+                              class="btn btn-warning"
+                              @click="scheduleInterview"
+                              :disabled="
+                                  !interviewForm.interview_date ||
+                                  !interviewForm.interview_location
+                              "
+                          >
+                              <i class="bi bi-calendar-check me-1"></i>
+                              Schedule Interview
+                          </button>
+
+                      </div>
+
+                  </div>
+              </div>
+          </div>
         </div>
       </div>
     </div>
@@ -299,6 +440,77 @@ const CompanyDashboard = {
         "bg-success": status === "approved",
         "bg-danger": status === "rejected",
       };
+    },
+
+    openInterviewModal(applicant) {
+
+        this.selectedApplicant = applicant
+
+        this.interviewForm = {
+            interview_date: "",
+            interview_mode: "Online",
+            interview_location: "",
+            interview_notes: ""
+        }
+
+        this.showInterviewModal = true
+    },
+
+    closeInterviewModal() {
+
+        this.showInterviewModal = false
+
+        this.selectedApplicant = null
+    },
+
+    async scheduleInterview() {
+
+        try {
+
+            await api.put(
+
+                `/api/company/applications/${this.selectedApplicant.application_id}/status`,
+
+                {
+                    status: "shortlisted",
+
+                    interview_date: this.interviewForm.interview_date,
+
+                    interview_mode: this.interviewForm.interview_mode,
+
+                    interview_location: this.interviewForm.interview_location,
+
+                    interview_notes: this.interviewForm.interview_notes
+                }
+
+            )
+
+            this.selectedApplicant.status = "shortlisted"
+
+            this.closeInterviewModal()
+
+            this.applicantMsg = {
+                text: "Interview scheduled successfully.",
+                type: "success"
+            }
+
+            await this.loadApplicants(this.selectedDrive)
+
+            await this.loadDashboard()
+
+        }
+        catch(err){
+
+            this.applicantMsg = {
+
+                text: err.data?.error || "Unable to schedule interview.",
+
+                type:"danger"
+
+            }
+
+        }
+
     },
 
     appStatusBadge(status) {
@@ -455,7 +667,13 @@ const CompanyDashboard = {
     },
   },
   mounted() {
-    this.userEmail = localStorage.getItem("userEmail") || "";
-    this.loadDashboard();
+      this.userEmail = localStorage.getItem("userEmail") || "";
+
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+
+      this.minInterviewDate = now.toISOString().slice(0, 16);
+
+      this.loadDashboard();
   },
 };

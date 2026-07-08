@@ -162,6 +162,11 @@ def update_application_status(application_id):
 
     data = request.get_json() or {}
     new_status = data.get('status', '').strip()
+    
+    interview_date = data.get('interview_date')
+    interview_mode = (data.get('interview_mode') or '').strip()
+    interview_location = (data.get('interview_location') or '').strip()
+    interview_notes = (data.get('interview_notes') or '').strip()
 
     valid_transitions = {
         'applied': ['shortlisted', 'rejected'],
@@ -170,8 +175,39 @@ def update_application_status(application_id):
     allowed = valid_transitions.get(app.status, [])
     if new_status not in allowed:
         return jsonify({'error': f'Cannot transition from "{app.status}" to "{new_status}".'}), 400
+    
+    # Interview details are required when shortlisting
+    parsed_interview_date = None
+
+    if new_status == 'shortlisted':
+
+        if not interview_date:
+            return jsonify({'error': 'Interview date is required.'}), 400
+
+        if interview_mode not in ['Online', 'Offline']:
+            return jsonify({'error': 'Interview mode must be Online or Offline.'}), 400
+
+        if not interview_location:
+            return jsonify({'error': 'Interview location/link is required.'}), 400
+
+        try:
+            parsed_interview_date = datetime.fromisoformat(interview_date)
+            if parsed_interview_date <= datetime.utcnow():
+                return jsonify({
+                    'error': 'Interview must be scheduled for a future date and time.'
+                }), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid interview date.'}), 400
 
     app.status = new_status
+
+    if new_status == 'shortlisted':
+        app.interview_date = parsed_interview_date
+        app.interview_mode = interview_mode
+        app.interview_location = interview_location
+        app.interview_notes = interview_notes
+        app.interview_scheduled_at = datetime.utcnow()
+
     db.session.commit()
     return jsonify({'message': 'Application status updated.', 'status': app.status})
 

@@ -120,6 +120,16 @@ def deactivate_company(company_id):
     _clear_admin_cache()
     return jsonify({'message': 'Company deactivated'})
 
+@admin_bp.route('/companies/<int:company_id>/activate', methods=['PUT'])
+@role_required('admin')
+def activate_company(company_id):
+    cp = CompanyProfile.query.get_or_404(company_id)
+    user = User.query.get_or_404(cp.user_id)
+    user.is_active = True
+    db.session.commit()
+    _clear_admin_cache()
+    return jsonify({'message': 'Company activated'})
+
 
 # ── Students ───────────────────────────────────────────────────────────────
 
