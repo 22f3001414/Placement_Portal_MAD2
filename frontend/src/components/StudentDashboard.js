@@ -15,6 +15,7 @@ const StudentDashboard = {
 
       // Selected drive for the modal
       selectedDriveDetails: null,
+      selectedApplication: null,
 
       // Profile edit
       editingProfile: false,
@@ -238,6 +239,7 @@ const StudentDashboard = {
                     <th>Company</th>
                     <th>Applied On</th>
                     <th>Status</th>
+                    <th>Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -247,6 +249,17 @@ const StudentDashboard = {
                     <td>{{ a.applied_date ? a.applied_date.slice(0,10) : '—' }}</td>
                     <td>
                       <span class="badge" :class="statusBadge(a.status)">{{ a.status }}</span>
+                    </td>
+                    <td>
+                        <button
+                            class="btn btn-outline-primary btn-sm"
+                            @click="viewApplication(a)"
+                            data-bs-toggle="modal"
+                            data-bs-target="#applicationModal"
+                        >
+                            <i class="bi bi-eye me-1"></i>
+                            View
+                        </button>
                     </td>
                   </tr>
                 </tbody>
@@ -303,6 +316,139 @@ const StudentDashboard = {
           </div>
         </div>
       </div>
+      <div class="modal fade"
+          id="applicationModal"
+          tabindex="-1"
+          aria-hidden="true">
+
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+
+              <div class="modal-content"
+                  v-if="selectedApplication">
+
+                  <div class="modal-header">
+
+                      <h5 class="modal-title fw-bold">
+
+                          {{ selectedApplication.job_title }}
+
+                      </h5>
+
+                      <button
+                          class="btn-close"
+                          data-bs-dismiss="modal">
+                      </button>
+
+                  </div>
+
+                  <div class="modal-body">
+
+                      <p>
+
+                          <strong>Company:</strong>
+
+                          {{ selectedApplication.company_name }}
+
+                      </p>
+
+                      <p>
+
+                          <strong>Status:</strong>
+
+                          <span
+                              class="badge"
+                              :class="statusBadge(selectedApplication.status)">
+
+                              {{ selectedApplication.status }}
+
+                          </span>
+
+                      </p>
+
+                      <div
+                          v-if="selectedApplication.interview_date"
+                          class="card border-success mt-3">
+
+                          <div class="card-header bg-success text-white">
+
+                              <i class="bi bi-calendar-event me-2"></i>
+
+                              Interview Details
+
+                          </div>
+
+                          <div class="card-body">
+
+                              <p>
+
+                                  <strong>Date:</strong>
+
+                                  {{ new Date(selectedApplication.interview_date).toLocaleString() }}
+
+                              </p>
+
+                              <p>
+
+                                  <strong>Mode:</strong>
+
+                                  {{ selectedApplication.interview_mode }}
+
+                              </p>
+
+                              <p>
+
+                                  <strong>Location / Link:</strong>
+
+                                  <br>
+
+                                  <a
+                                      v-if="selectedApplication.interview_mode==='Online'"
+                                      :href="selectedApplication.interview_location"
+                                      target="_blank">
+
+                                      {{ selectedApplication.interview_location }}
+
+                                  </a>
+
+                                  <span
+                                      v-else>
+
+                                      {{ selectedApplication.interview_location }}
+
+                                  </span>
+
+                              </p>
+
+                              <p
+                                  v-if="selectedApplication.interview_notes">
+
+                                  <strong>Notes:</strong>
+
+                                  <br>
+
+                                  {{ selectedApplication.interview_notes }}
+
+                              </p>
+
+                          </div>
+
+                      </div>
+
+                      <div
+                          v-else
+                          class="alert alert-info mt-3">
+
+                          No interview has been scheduled yet.
+
+                      </div>
+
+                  </div>
+
+              </div>
+
+          </div>
+
+      </div>
     </div>
   `,
   computed: {
@@ -322,6 +468,12 @@ const StudentDashboard = {
       // Bootstrap's data-bs-toggle attribute handles physically opening the modal window.
       this.selectedDriveDetails = drive;
       this.applyMsg = { driveId: null, text: '', type: '' }; // Clear any old application messages
+    },
+
+    viewApplication(application){
+
+        this.selectedApplication = application
+
     },
 
     statusBadge(status) {

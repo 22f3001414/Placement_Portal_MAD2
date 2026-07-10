@@ -89,6 +89,9 @@ class PlacementDrive(db.Model):
     eligible_years = db.Column(db.String(50))        # comma-separated: '3,4'
     deadline = db.Column(db.DateTime)
     status = db.Column(db.String(20), default='pending', nullable=False)  # pending | approved | closed
+    # Whether students can currently view/apply to this drive.
+    # Used when a company is deactivated or blacklisted.
+    is_available = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     applications = db.relationship('Application', backref='drive', lazy=True, cascade='all, delete-orphan')
@@ -105,6 +108,7 @@ class PlacementDrive(db.Model):
             'eligible_years': self.eligible_years,
             'deadline': self.deadline.isoformat() if self.deadline else None,
             'status': self.status,
+            'is_available': self.is_available,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'applicant_count': len(self.applications)
         }

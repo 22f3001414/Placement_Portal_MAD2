@@ -48,6 +48,7 @@ def dashboard():
 
     drives = PlacementDrive.query.filter(
         PlacementDrive.status == 'approved',
+        PlacementDrive.is_available == True,
         PlacementDrive.deadline >= _today_start()
     ).all()
 
@@ -65,7 +66,13 @@ def dashboard():
         'job_title': drive.job_title,
         'company_name': cp.company_name,
         'applied_date': app.applied_date.isoformat() if app.applied_date else None,
-        'status': app.status
+        'status': app.status,
+
+        'interview_date': app.interview_date.isoformat() if app.interview_date else None,
+        'interview_mode': app.interview_mode,
+        'interview_location': app.interview_location,
+        'interview_notes': app.interview_notes
+
     } for app, drive, cp in applications]
 
     return jsonify({
@@ -195,6 +202,7 @@ def list_drives():
 
     drives = PlacementDrive.query.filter(
         PlacementDrive.status == 'approved',
+        PlacementDrive.is_available == True,
         PlacementDrive.deadline >= _today_start()
     ).all()
 
@@ -218,6 +226,10 @@ def apply_to_drive(drive_id):
         return err
 
     drive = PlacementDrive.query.get_or_404(drive_id)
+    if not drive.is_available:
+        return jsonify({
+            'error': 'This company is currently inactive.'
+        }), 403
 
     if drive.status != 'approved':
         return jsonify({'error': 'This drive is not open for applications.'}), 400
@@ -269,7 +281,13 @@ def my_applications():
         'job_title': drive.job_title,
         'company_name': cp.company_name,
         'applied_date': app.applied_date.isoformat() if app.applied_date else None,
-        'status': app.status
+        'status': app.status,
+
+        'interview_date': app.interview_date.isoformat() if app.interview_date else None,
+        'interview_mode': app.interview_mode,
+        'interview_location': app.interview_location,
+        'interview_notes': app.interview_notes
+
     } for app, drive, cp in rows])
 
 

@@ -10,10 +10,37 @@ company_bp = Blueprint('company', __name__)
 
 
 def _get_company_profile():
+
     user_id = get_current_user_id()
+
     cp = CompanyProfile.query.filter_by(user_id=user_id).first()
+
     if not cp:
-        return None, (jsonify({'error': 'Company profile not found'}), 404)
+        return None, (
+            jsonify({
+                'error': 'Company profile not found.'
+            }),
+            404
+        )
+
+    user = User.query.get(cp.user_id)
+
+    if user.is_blacklisted:
+        return None, (
+            jsonify({
+                'error': 'Your company account has been blacklisted.'
+            }),
+            403
+        )
+
+    if not user.is_active:
+        return None, (
+            jsonify({
+                'error': 'Your company account has been deactivated.'
+            }),
+            403
+        )
+
     return cp, None
 
 
@@ -209,6 +236,9 @@ def update_application_status(application_id):
         app.interview_scheduled_at = datetime.utcnow()
 
     db.session.commit()
+    if new_status == "shortlisted":
+        from tasks.tasks import send_interview_schedule_email
+        send_interview_schedule_email.delay(app.id)
     return jsonify({'message': 'Application status updated.', 'status': app.status})
 
 @company_bp.route('/applications/<int:application_id>/resume', methods=['GET'])

@@ -117,6 +117,85 @@ def send_monthly_report():
     print(f'[MONTHLY REPORT] Saved: {filename}')
     return f'Report saved and emailed to Admin.'
 
+# ── Job: Send interview scheduling email ─────────────────────────────────
+
+@celery.task(name='tasks.tasks.send_interview_schedule_email')
+def send_interview_schedule_email(application_id):
+    """
+    Sends an interview scheduling email to a student after the company
+    schedules an interview.
+    """
+
+    from models.models import Application, User
+
+    application = Application.query.get(application_id)
+
+    if not application:
+        return "Application not found."
+
+    student = application.student
+    drive = application.drive
+    company = drive.company
+    user = User.query.get(student.user_id)
+
+    interview_datetime = application.interview_date.strftime(
+        "%d %B %Y, %I:%M %p"
+    )
+
+    body = f"""
+Hello {student.name},
+
+Congratulations!
+
+You have been shortlisted for the following placement drive.
+
+---------------------------------------------
+
+Company:
+{company.company_name}
+
+Position:
+{drive.job_title}
+
+---------------------------------------------
+
+Interview Details
+
+Date & Time:
+{interview_datetime}
+
+Mode:
+{application.interview_mode}
+
+Location / Meeting Link:
+{application.interview_location}
+
+Notes:
+{application.interview_notes or "None"}
+
+---------------------------------------------
+
+Please make sure you are available at least 10 minutes before the scheduled time.
+
+Good luck!
+
+Regards,
+Placement Portal
+"""
+
+    msg = Message(
+        subject=f"Interview Scheduled - {drive.job_title}",
+        recipients=[user.email],
+        body=body
+    )
+
+    mail.send(msg)
+
+    print(
+        f"[INTERVIEW EMAIL] Sent interview details to {user.email}"
+    )
+
+    return f"Interview email sent to {user.email}"
 
 # ── Job c: User-triggered — export student's own applications as CSV ───────
 
