@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from config import Config
 from extensions import db, jwt, cache, mail
@@ -16,7 +16,7 @@ def create_app():
         __name__,
         template_folder='../frontend',
         static_folder='../frontend',
-        static_url_path=''
+        static_url_path='/static'
     )
     app.config.from_object(Config)
 
@@ -37,6 +37,11 @@ def create_app():
     from routes.admin import admin_bp
     from routes.company import company_bp
     from routes.student import student_bp
+    
+    @app.before_request
+    def debug_request():
+        print(f"[REQUEST] {request.method} {request.path}")
+    
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(company_bp, url_prefix='/api/company')
@@ -58,10 +63,10 @@ def create_app():
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
-        # Let Flask serve actual static files (src/*, etc.)
-        if path.startswith('src/'):
-            from flask import abort
-            abort(404)
+        print(f'[INFO] Catch-all route hit for path: {path}')
+        # Don't intercept API routes
+        if path.startswith("api/"):
+            return jsonify({"error": "Not Found"}), 404
         return render_template('index.html')
 
     with app.app_context():
