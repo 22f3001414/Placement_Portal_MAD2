@@ -63,5 +63,5 @@ backend/reports/
 
 dump.rdb
 
-.mp4
-.mov
+*.mp4
+*.mov
