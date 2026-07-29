@@ -508,27 +508,65 @@ const StudentDashboard = {
     },
 
     async saveProfile() {
-      this.editMsg = { text: '', type: '' }
-      if (!this.editForm.name.trim()) {
-        this.editMsg = { text: 'Name is required.', type: 'danger' }
-        return
-      }
-      this.editLoading = true
-      try {
-        const res = await api.put('/api/student/profile', {
-          name: this.editForm.name.trim(),
-          branch: this.editForm.branch || null,
-          cgpa: this.editForm.cgpa !== '' ? parseFloat(this.editForm.cgpa) : null,
-          year: this.editForm.year !== '' ? parseInt(this.editForm.year) : null
-        })
-        this.profile = { ...this.profile, ...res.profile }
-        this.editingProfile = false
-        this.pageMsg = { text: 'Profile updated successfully.', type: 'success' }
-        setTimeout(() => { this.pageMsg = { text: '', type: '' } }, 3000)
-      } catch (err) {
-        this.editMsg = { text: err.data?.error || 'Failed to update profile.', type: 'danger' }
-      }
-      this.editLoading = false
+
+        this.editMsg = { text: '', type: '' }
+
+        if (!this.editForm.name.trim()) {
+            this.editMsg = {
+                text: 'Name is required.',
+                type: 'danger'
+            }
+            return
+        }
+
+        this.editLoading = true
+
+        try {
+
+            const res = await api.put('/api/student/profile', {
+                name: this.editForm.name.trim(),
+                branch: this.editForm.branch || null,
+                cgpa:
+                    this.editForm.cgpa !== ''
+                        ? parseFloat(this.editForm.cgpa)
+                        : null,
+                year:
+                    this.editForm.year !== ''
+                        ? parseInt(this.editForm.year)
+                        : null
+            })
+
+            // Reload latest profile from backend
+            await this.loadDashboard()
+
+            this.editingProfile = false
+
+            this.pageMsg = {
+                text: res.message,
+                type: 'success'
+            }
+
+            setTimeout(() => {
+                this.pageMsg = {
+                    text: '',
+                    type: ''
+                }
+            }, 4000)
+
+        }
+        catch (err) {
+
+            this.editMsg = {
+                text:
+                    err.data?.error ||
+                    'Failed to update profile.',
+                type: 'danger'
+            }
+
+        }
+
+        this.editLoading = false
+
     },
 
     // ── Resume view/upload ────────────────────────────────────────────────

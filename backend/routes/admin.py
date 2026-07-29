@@ -1,8 +1,17 @@
 import os
 import re
 from flask import Blueprint, jsonify, request, send_file
+from flask_jwt_extended import get_jwt_identity
+from datetime import datetime
 from extensions import db, cache
-from models.models import User, StudentProfile, CompanyProfile, PlacementDrive, Application
+from models.models import (
+    User,
+   StudentProfile,
+    CompanyProfile,
+    PlacementDrive,
+    Application,
+    StudentProfileUpdateRequest,
+)
 from routes.utils import role_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -214,6 +223,104 @@ def activate_student(student_id):
     _clear_admin_cache()
     return jsonify({'message': 'Student activated'})
 
+# ── Student Profile Update Requests ───────────────────────────────────────
+
+@admin_bp.route('/profile-update-requests', methods=['GET'])
+@role_required('admin')
+def list_profile_update_requests():
+
+    requests = StudentProfileUpdateRequest.query.filter_by(
+        status="pending"
+    ).all()
+
+    result = []
+
+    for req in requests:
+
+        student = req.student
+        user = student.user
+
+        result.append({
+            "request_id": req.id,
+
+            "student_id": student.id,
+            "student_name": student.name,
+            "email": user.email,
+
+            "current_branch": student.branch,
+            "requested_branch": req.requested_branch,
+
+            "current_cgpa": student.cgpa,
+            "requested_cgpa": req.requested_cgpa,
+
+            "current_year": student.year,
+            "requested_year": req.requested_year,
+
+            "submitted_at": req.created_at.isoformat()
+            if req.created_at else None
+        })
+
+    return jsonify(result)
+
+@admin_bp.route('/profile-update-requests/<int:request_id>/approve', methods=['PUT'])
+@role_required('admin')
+def approve_profile_update_request(request_id):
+
+    request_entry = StudentProfileUpdateRequest.query.get(request_id)
+
+    if not request_entry:
+        return jsonify({"error": "Profile update request not found."}), 404
+
+    if request_entry.status != "pending":
+        return jsonify({
+            "error": "This request has already been processed."
+        }), 400
+
+    student = request_entry.student
+
+    # Apply the approved changes
+    student.branch = request_entry.requested_branch
+    student.cgpa = request_entry.requested_cgpa
+    student.year = request_entry.requested_year
+
+    # Mark request as approved
+    request_entry.status = "approved"
+    request_entry.approved_at = datetime.utcnow()
+
+    admin_user = User.query.get(get_jwt_identity())
+    request_entry.approved_by = admin_user.id
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Profile update request approved successfully."
+    }), 200
+    
+@admin_bp.route('/profile-update-requests/<int:request_id>/reject', methods=['PUT'])
+@role_required('admin')
+def reject_profile_update_request(request_id):
+
+    request_entry = StudentProfileUpdateRequest.query.get(request_id)
+
+    if not request_entry:
+        return jsonify({
+            "error": "Profile update request not found."
+        }), 404
+
+    if request_entry.status != "pending":
+        return jsonify({
+            "error": "This request has already been processed."
+        }), 400
+
+    request_entry.status = "rejected"
+    request_entry.approved_at = datetime.utcnow()
+    request_entry.approved_by = get_jwt_identity()
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Profile update request rejected successfully."
+    }), 200
 
 # ── Drives ─────────────────────────────────────────────────────────────────
 

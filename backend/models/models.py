@@ -39,6 +39,11 @@ class StudentProfile(db.Model):
     resume_filename = db.Column(db.String(200))
 
     applications = db.relationship('Application', backref='student', lazy=True, cascade='all, delete-orphan')
+    update_requests = db.relationship(
+        "StudentProfileUpdateRequest",
+        back_populates="student",
+        lazy=True,
+        cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -152,4 +157,67 @@ class Application(db.Model):
                 self.interview_scheduled_at.isoformat()
                 if self.interview_scheduled_at else None
             )
+        }
+
+class StudentProfileUpdateRequest(db.Model):
+    __tablename__ = "student_profile_update_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    student_id = db.Column(
+        db.Integer,
+        db.ForeignKey("student_profile.id"),
+        nullable=False
+    )
+
+    requested_branch = db.Column(db.String(50))
+    previous_branch = db.Column(db.String(50))
+    requested_cgpa = db.Column(db.Float)
+    previous_cgpa = db.Column(db.Float)
+    requested_year = db.Column(db.Integer)
+    previous_requested_year = db.Column(db.Integer)
+
+    status = db.Column(
+        db.String(20),
+        default="pending",
+        nullable=False
+    )  # pending | approved | rejected
+
+    created_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow
+    )
+
+    approved_at = db.Column(
+        db.DateTime,
+        nullable=True
+    )
+
+    approved_by = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id"),
+        nullable=True
+    )
+
+    student = db.relationship(
+        "StudentProfile",
+        back_populates="update_requests"
+    )
+
+    approver = db.relationship(
+        "User",
+        foreign_keys=[approved_by]
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "requested_branch": self.requested_branch,
+            "requested_cgpa": self.requested_cgpa,
+            "requested_year": self.requested_year,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+            "approved_by": self.approved_by
         }

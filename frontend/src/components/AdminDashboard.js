@@ -24,6 +24,11 @@ const AdminDashboard = {
       studentSearch: '',
       studentMsg: { text: '', type: '' },
 
+      // Profile Update Requests
+      profileRequests: [],
+      profileRequestsLoading: false,
+      profileRequestMsg: { text: '', type: '' },
+
       // Drives
       drives: [],
       drivesLoading: false,
@@ -63,6 +68,17 @@ const AdminDashboard = {
             <a class="nav-link" :class="{active: activeTab==='students'}" href="#" @click.prevent="switchTab('students')">
               <i class="bi bi-mortarboard me-1"></i>Students
             </a>
+          </li>
+          <li class="nav-item">
+              <a
+                  class="nav-link"
+                  :class="{active: activeTab==='profileRequests'}"
+                  href="#"
+                  @click.prevent="switchTab('profileRequests')"
+              >
+                  <i class="bi bi-person-lines-fill me-1"></i>
+                  Profile Requests
+              </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" :class="{active: activeTab==='drives'}" href="#" @click.prevent="switchTab('drives')">
@@ -272,6 +288,145 @@ const AdminDashboard = {
           </div>
         </div>
 
+        <!-- ── PROFILE UPDATE REQUESTS ── -->
+        <div v-if="activeTab==='profileRequests'">
+
+          <div
+            v-if="profileRequestMsg.text"
+            class="alert"
+            :class="'alert-' + profileRequestMsg.type"
+          >
+            {{ profileRequestMsg.text }}
+          </div>
+
+          <div
+            v-if="profileRequestsLoading"
+            class="text-center py-4"
+          >
+            <div class="spinner-border text-primary"></div>
+          </div>
+
+          <div
+            v-else-if="profileRequests.length===0"
+            class="text-muted"
+          >
+            No pending profile update requests.
+          </div>
+
+          <div
+            v-else
+            class="table-responsive"
+          >
+
+            <table class="table table-hover align-middle">
+
+              <thead class="table-dark">
+                <tr>
+
+                  <th>Student</th>
+
+                  <th>Email</th>
+
+                  <th>Branch</th>
+
+                  <th>CGPA</th>
+
+                  <th>Year</th>
+
+                  <th>Submitted</th>
+
+                  <th>Actions</th>
+
+                </tr>
+              </thead>
+
+              <tbody>
+
+                <tr
+                  v-for="r in profileRequests"
+                  :key="r.request_id"
+                >
+
+                  <td class="fw-semibold">
+                    {{ r.student_name }}
+                  </td>
+
+                  <td>
+                    {{ r.email }}
+                  </td>
+
+                  <td>
+                    <span class="text-muted">
+                      {{ r.current_branch }}
+                    </span>
+
+                    <i class="bi bi-arrow-right mx-2"></i>
+
+                    <strong>
+                      {{ r.requested_branch }}
+                    </strong>
+                  </td>
+
+                  <td>
+                    <span class="text-muted">
+                      {{ r.current_cgpa }}
+                    </span>
+
+                    <i class="bi bi-arrow-right mx-2"></i>
+
+                    <strong>
+                      {{ r.requested_cgpa }}
+                    </strong>
+                  </td>
+
+                  <td>
+                    <span class="text-muted">
+                      {{ r.current_year }}
+                    </span>
+
+                    <i class="bi bi-arrow-right mx-2"></i>
+
+                    <strong>
+                      {{ r.requested_year }}
+                    </strong>
+                  </td>
+
+                  <td>
+                    {{ r.submitted_at ? r.submitted_at.slice(0,10) : '—' }}
+                  </td>
+
+                  <td>
+
+                    <div class="d-flex gap-2">
+
+                      <button
+                        class="btn btn-success btn-sm"
+                        @click="approveProfileRequest(r.request_id)"
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        class="btn btn-danger btn-sm"
+                        @click="rejectProfileRequest(r.request_id)"
+                      >
+                        Reject
+                      </button>
+
+                    </div>
+
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
         <!-- ── DRIVES ── -->
         <div v-if="activeTab==='drives'">
           <div class="d-flex gap-2 mb-3">
@@ -414,13 +569,23 @@ const AdminDashboard = {
     switchTab(tab) {
       this.activeTab = tab
       this.expandedDriveId = null
-      if (tab === 'companies') this.loadCompanies()
-      else if (tab === 'students') this.loadStudents()
-      else if (tab === 'drives') this.loadDrives()
-      else if (tab === 'overview' && this.chartStats) {
-        this.$nextTick(() => this.renderCharts())
-      }
-      else if (tab === 'reports') this.loadReports()
+      if (tab === 'companies')
+          this.loadCompanies()
+
+      else if (tab === 'students')
+          this.loadStudents()
+
+      else if (tab === 'profileRequests')
+          this.loadProfileRequests()
+
+      else if (tab === 'drives')
+          this.loadDrives()
+
+      else if (tab === 'overview' && this.chartStats)
+          this.$nextTick(() => this.renderCharts())
+
+      else if (tab === 'reports')
+          this.loadReports()
     },
 
     statusBadge(status) {
@@ -538,6 +703,89 @@ const AdminDashboard = {
         this.studentMsg = { text: err.data?.error || 'Action failed.', type: 'danger' }
       }
       setTimeout(() => { this.studentMsg = { text: '', type: '' } }, 3000)
+    },
+
+    async loadProfileRequests() {
+
+        this.profileRequestsLoading = true
+
+        try {
+
+            this.profileRequests =
+                await api.get('/api/admin/profile-update-requests')
+
+        }
+        catch (_) {}
+
+        this.profileRequestsLoading = false
+    },
+
+    async approveProfileRequest(id) {
+
+        try {
+
+            const res = await api.put(
+                `/api/admin/profile-update-requests/${id}/approve`
+            )
+
+            this.profileRequestMsg = {
+                text: res.message,
+                type: 'success'
+            }
+
+            await this.loadProfileRequests()
+
+        }
+        catch (err) {
+
+            this.profileRequestMsg = {
+                text: err.data?.error || 'Approval failed.',
+                type: 'danger'
+            }
+
+        }
+
+        setTimeout(() => {
+            this.profileRequestMsg = {
+                text: '',
+                type: ''
+            }
+        }, 3000)
+
+    },
+
+    async rejectProfileRequest(id) {
+
+        try {
+
+            const res = await api.put(
+                `/api/admin/profile-update-requests/${id}/reject`
+            )
+
+            this.profileRequestMsg = {
+                text: res.message,
+                type: 'success'
+            }
+
+            await this.loadProfileRequests()
+
+        }
+        catch (err) {
+
+            this.profileRequestMsg = {
+                text: err.data?.error || 'Reject failed.',
+                type: 'danger'
+            }
+
+        }
+
+        setTimeout(() => {
+            this.profileRequestMsg = {
+                text: '',
+                type: ''
+            }
+        }, 3000)
+
     },
 
     async loadDrives() {

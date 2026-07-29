@@ -2,7 +2,13 @@ import os
 from flask import Blueprint, jsonify, request, send_file, current_app
 from sqlalchemy.exc import IntegrityError
 from extensions import db, cache
-from models.models import StudentProfile, PlacementDrive, Application, CompanyProfile
+from models.models import (
+    StudentProfile,
+    PlacementDrive,
+    Application,
+    CompanyProfile,
+    StudentProfileUpdateRequest,
+)
 from routes.utils import role_required, get_current_user_id
 from datetime import datetime, time
 
@@ -106,41 +112,119 @@ def edit_profile():
             return jsonify({'error': 'Name cannot be empty.'}), 400
         sp.name = name
 
-    if 'branch' in data:
-        sp.branch = (data['branch'] or '').strip() or None
+    # ----------------------------
+    # Profile Update Approval Flow
+    # ----------------------------
 
-    if 'cgpa' in data:
-        raw = data['cgpa']
-        if raw == '' or raw is None:
-            sp.cgpa = None
+    # Prevent multiple pending requests
+    pending_request = StudentProfileUpdateRequest.query.filter_by(
+        student_id=sp.id,
+        status="pending"
+    ).first()
+
+    if pending_request:
+        return jsonify({
+            "error": "You already have a pending profile update request awaiting admin approval."
+        }), 400
+
+
+    requested_branch = sp.branch
+    requested_cgpa = sp.cgpa
+    requested_year = sp.year
+
+
+    # Branch
+    if "branch" in data:
+        requested_branch = (data["branch"] or "").strip() or None
+
+
+    # CGPA
+    if "cgpa" in data:
+        raw = data["cgpa"]
+
+        if raw == "" or raw is None:
+            requested_cgpa = None
+
         else:
             try:
-                cgpa = float(raw)
-                if not (0 <= cgpa <= 10):
-                    return jsonify({'error': 'CGPA must be between 0 and 10.'}), 400
-                sp.cgpa = cgpa
-            except (ValueError, TypeError):
-                return jsonify({'error': 'Invalid CGPA value.'}), 400
+                requested_cgpa = float(raw)
 
-    if 'year' in data:
-        raw = data['year']
-        if raw == '' or raw is None:
-            sp.year = None
+                if not (0 <= requested_cgpa <= 10):
+                    return jsonify({
+                        "error": "CGPA must be between 0 and 10."
+                    }), 400
+
+            except (ValueError, TypeError):
+                return jsonify({
+                    "error": "Invalid CGPA value."
+                }), 400
+
+
+    # Year
+    if "year" in data:
+        raw = data["year"]
+
+        if raw == "" or raw is None:
+            requested_year = None
+
         else:
             try:
-                year = int(raw)
-                if year not in range(1, 5):
-                    return jsonify({'error': 'Year must be between 1 and 4.'}), 400
-                sp.year = year
+                requested_year = int(raw)
+
+                if requested_year not in range(1, 5):
+                    return jsonify({
+                        "error": "Year must be between 1 and 4."
+                    }), 400
+
             except (ValueError, TypeError):
-                return jsonify({'error': 'Invalid year value.'}), 400
+                return jsonify({
+                    "error": "Invalid year value."
+                }), 400
+
+
+    # Create approval request only if any eligibility field changed
+    if (
+        requested_branch != sp.branch
+        or requested_cgpa != sp.cgpa
+        or requested_year != sp.year
+    ):
+
+        request_entry = StudentProfileUpdateRequest(
+            student_id=sp.id,
+            previous_branch=sp.branch,
+            requested_branch=requested_branch,
+            previous_cgpa=sp.cgpa,
+            requested_cgpa=requested_cgpa,
+            previous_requested_year=sp.year,
+            requested_year=requested_year,
+            status="pending"
+        )
+
+        db.session.add(request_entry)
 
     db.session.commit()
+
+    message = "Profile updated successfully."
+
+    if (
+        requested_branch != sp.branch
+        or requested_cgpa != sp.cgpa
+        or requested_year != sp.year
+    ):
+        message = (
+            "Name updated successfully. "
+            "Your branch/CGPA/year update request has been submitted for admin approval."
+        )
+
     return jsonify({
-        'message': 'Profile updated successfully.',
-        'profile': {
-            'id': sp.id, 'name': sp.name, 'branch': sp.branch,
-            'cgpa': sp.cgpa, 'year': sp.year, 'resume_filename': sp.resume_filename
+        "message": message,
+        "profile": {
+            "id": sp.id,
+            "name": sp.name,
+            "branch": sp.branch,
+            "cgpa": sp.cgpa,
+            "year": sp.year,
+            "resume_filename": sp.resume_filename
         }
     })
 
